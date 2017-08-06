@@ -60,14 +60,15 @@ class Analysis:
         """
         sampling_rate = 0.2
         num_trajecs = len(time_position)
-        
+
         def closest_sampletime(t):
             return round(float(t) / sampling_rate) * sampling_rate
-        
+
         interp_position = []
         interp_time = []
         for i in range(len(time_position)):
-            # TODO last indices were swapped here before? is this wrong? 
+            print i/len(time_position)
+            # TODO last indices were swapped here before? is this wrong?
             # did i screw something else up?
             original_times = time_position[i][0,:]
             original_x_positions = time_position[i][1,:]
@@ -88,7 +89,7 @@ class Analysis:
             new_x_positions = f(new_times)
             interp_time.append(new_times)
             interp_position.append(new_x_positions)
-        
+
         # TODO check all of these make sense together
         old_min_time = min([np.min(a[0,:]) for a in time_position])
         old_max_time = max([np.max(a[0,:]) for a in time_position])
@@ -97,22 +98,20 @@ class Analysis:
 
         begin_offset = []
         end_offset = []
-        for i in range(num_trajecs):
-            interp_section = interp_time[i]
-            begin = int(((interp_section[0] - min_time)/sampling_rate))
-            begin_offset.append(begin)
-            end = int(((max_time - interp_section[-1])/sampling_rate))
-            end_offset.append(end)
+        print "end of for loop"
 
-        final_aligned = []
+        #final_aligned = []
+        final_aligned = np.empty([num_trajecs, total_num_samples])
         total_num_samples = int(round((max_time - min_time) / sampling_rate))
-        
+        print "DID IT GET HERE?"
         for i in range(num_trajecs):
-            aligned_interp = np.empty(total_num_samples) * np.nan
+            print i/num_trajecs
+            #aligned_interp = np.empty(total_num_samples) * np.nan
             start_idx = int(round((interp_time[i][0] - min_time) / sampling_rate))
             end_idx = start_idx + len(interp_time[i])
-            aligned_interp[start_idx:end_idx] = interp_position[i]
-            final_aligned.append(aligned_interp)
+            #aligned_interp[start_idx:end_idx] = interp_position[i]
+            final_aligned[i,start_idx:end_idx] = interp_position[i] 
+            #final_aligned.append(aligned_interp)
         '''
         for i in range(interp_time.shape[0]):
             aligned_interp = []
@@ -130,14 +129,14 @@ class Analysis:
         return final_aligned
 
     def occupancy(self, interp_position_total):
-        num_frames = position.shape[1]
+        num_frames = interp_position_total.shape[1]
         b = []
         flies = 0
         lf = 0
         rt = 0
         for i in range (num_frames):
-            flies = np.sum(position[:, i]>0)
-            lf = np.sum(position[:, int(i)]>920)
+            flies = np.nansum(interp_position_total[:, i]>0)
+            lf = np.nansum(interp_position_total[:, int(i)]>920)
             rt = flies-lf
             b.append([lf,rt])
             rt =0
@@ -148,10 +147,10 @@ class Analysis:
         plt.ylabel('flies')
         plt.xlabel('frames')
         lf_edge= 0
-        rt_edge= self.frame_rate*2*60
-        for i in range ((self.max_frame/(self.frame_rate*30*60))+1):
-                lf_edge= lf_edge+ self.frame_rate*1680
-                rt_edge= rt_edge+ self.frame_rate*1680
+        rt_edge= 600
+        for i in range (int(b.shape[0]/9000)+1):
+                lf_edge= lf_edge+ 8400
+                rt_edge= rt_edge+ 8400
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return b
@@ -170,11 +169,11 @@ class Analysis:
         plt.plot(occ)
         plt.xlabel('time')
         plt.ylabel('percent occupancy')
-        lf_edge= 0+ 6.666666666*self.frame_rate
-        rt_edge= self.frame_rate*2*60 + 6.666666666*self.frame_rate
-        for i in range ((self.max_frame/(self.frame_rate*30*60))+1):
-                lf_edge= lf_edge+ self.frame_rate*1680
-                rt_edge= rt_edge+ self.frame_rate*1680
+        lf_edge= 0
+        rt_edge= 600
+        for i in range (int(len(occ)/9000)+1):
+                lf_edge= lf_edge+ 8400
+                rt_edge= rt_edge+ 8400
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return occ
@@ -188,7 +187,7 @@ class Analysis:
         for i in range (len(np.unique(self.pd.objid))):
             trajec = self.dataset.trajec(self.dataset.keys[i])
             times = trajec.time_epoch_secs + trajec.time_epoch_nsecs / 1e9
-            time_speedy = np.vstack([times, trajec.speed)
+            time_speedy = np.vstack([times, trajec.speed])
             time_speed.append(time_speedy)
         return time_speed
 
@@ -196,17 +195,17 @@ class Analysis:
         speed = []
         sampling_rate = 0.2
         num_trajecs = len(time_speed)
-        
+
         def closest_sampletime(t):
             return round(float(t) / sampling_rate) * sampling_rate
-        
+
         interp_position = []
         interp_time = []
-        for i in range(len(time_position)):
-            # TODO last indices were swapped here before? is this wrong? 
+        for i in range(len(time_speed)):
+            # TODO last indices were swapped here before? is this wrong?
             # did i screw something else up?
-            original_times = time_position[i][0,:]
-            original_x_positions = time_position[i][1,:]
+            original_times = time_speed[i][0,:]
+            original_x_positions = time_speed[i][1,:]
             # TODO maybe consider using ceil / floor in calculating closest sample time
             # and getting rid of the fill_value='extrapolate' argument
             f = interpolate.interp1d(original_times, original_x_positions, fill_value='extrapolate')
@@ -224,7 +223,7 @@ class Analysis:
             new_x_positions = f(new_times)
             interp_time.append(new_times)
             interp_position.append(new_x_positions)
-        
+
         # TODO check all of these make sense together
         old_min_time = min([np.min(a[0,:]) for a in time_speed])
         old_max_time = max([np.max(a[0,:]) for a in time_speed])
@@ -242,7 +241,7 @@ class Analysis:
 
         final_aligned = []
         total_num_samples = int(round((max_time - min_time) / sampling_rate))
-        
+
         for i in range(num_trajecs):
             aligned_interp = np.empty(total_num_samples) * np.nan
             start_idx = int(round((interp_time[i][0] - min_time) / sampling_rate))
@@ -262,6 +261,14 @@ class Analysis:
             print len(aligned_interp)
         '''
         final_aligned = np.array(final_aligned)
+        plt.plot(final_aligned)
+        plt.xlabel('time')
+        plt.ylabel('percent occupancy')
+        lf_edge= 0
+        rt_edge= 600
+        for i in range (int(final_aligned.shape[0]/9000) +1):
+                lf_edge= lf_edge+ 8400
+                rt_edge= rt_edge+ 8400
+                plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        plt.show()
         return final_aligned
-
-

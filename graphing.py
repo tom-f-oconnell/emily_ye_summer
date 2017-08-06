@@ -1,4 +1,4 @@
-from analysis import Analysis
+from tester import Analysis
 import multi_tracker_analysis as mta
 
 
@@ -13,7 +13,9 @@ ending_offsets = []
 pd, config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(hdf5_filename)
 dataset = mta.read_hdf5_file_to_pandas.Dataset(pd, path = path)
 willitwork = Analysis(pd, dataset, beginning_offsets, ending_offsets, min_frame, max_frame, frame_rate, hdf5_filename = hdf5_filename, path = path, position = position)
-position = willitwork.align()
-occupancy_original = willitwork.occupancy(position)
-b = willitwork.walkspeed()
+time_position = willitwork.time_position()
+interp_position_total = willitwork.interpolate_and_align(time_position)
+occupancy_original = willitwork.occupancy(interp_position_total)
 c = willitwork.occupancy_percent(occupancy_original)
+time_speed = willitwork.time_speed()
+walking = willitwork.walkspeed(time_speed)
