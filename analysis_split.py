@@ -54,6 +54,9 @@ class Analysis:
                 time_position.append(time_pos)
             else:
                 print "THROWING OUT STUFF"
+                print i
+                print time_pos.shape
+
         return time_position
 
     def interpolate_and_align(self, time_position):
@@ -185,6 +188,8 @@ class Analysis:
                 time_speed.append(time_speedy)
             else:
                 print "THROWING OUT STUFF"
+                print i
+                print time_speedy.shape
         return time_speed
 
     def walkspeed(self, time_speed):
@@ -259,9 +264,10 @@ class Analysis:
         '''
 
         final_aligned = np.array(final_aligned)
+        print final_aligned.shape
         std_err = []
         avg = np.nanmean(final_aligned, axis=0)
-        avg_speed = np.array(avg_speed)
+        avg_speed = np.array(avg)
         #std_err = stats.sem(final_aligned, axis=0, ddof=1, nan_policy='omit')
         std_err = np.empty(final_aligned.shape[1])
         for i in range(final_aligned.shape[1]):

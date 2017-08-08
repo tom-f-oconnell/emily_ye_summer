@@ -61,7 +61,7 @@ class Analysis:
         time_position (list): contains numpy arrays of (2, num_samples)
                               where dimension 0 is time and 1 is x position
         """
-        sampling_rate = 0.2
+        sampling_rate = 0.5
         num_trajecs = len(time_position)
         rows = []
         cols = []
@@ -189,10 +189,10 @@ class Analysis:
         plt.ylabel('flies')
         plt.xlabel('frames')
         lf_edge= 0
-        rt_edge= 600
-        for i in range (int(b.shape[0]/9000)+1):
-                lf_edge= lf_edge+ 8400
-                rt_edge= rt_edge+ 8400
+        rt_edge= 240
+        for i in range (int(b.shape[0]/3600)+2):
+                lf_edge= lf_edge+ 3360
+                rt_edge= rt_edge+ 3360
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return b
@@ -212,10 +212,10 @@ class Analysis:
         plt.xlabel('time')
         plt.ylabel('percent occupancy')
         lf_edge= 0
-        rt_edge= 600
-        for i in range (int(len(occ)/9000)+1):
-                lf_edge= lf_edge+ 8400
-                rt_edge= rt_edge+ 8400
+        rt_edge= 240
+        for i in range (int(len(occ)/3600)+2):
+                lf_edge= lf_edge+ 3360
+                rt_edge= rt_edge+ 3360
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return occ
@@ -234,62 +234,82 @@ class Analysis:
         return time_speed
 
     def walkspeed(self, time_speed):
-        speed = []
-        sampling_rate = 0.2
+        """
+        Parameters:
+        time_position (list): contains numpy arrays of (2, num_samples)
+                              where dimension 0 is time and 1 is x position
+        """
+        sampling_rate = 0.5
         num_trajecs = len(time_speed)
-
+        rows = []
+        cols = []
+        data = []
         def closest_sampletime(t):
             return round(float(t) / sampling_rate) * sampling_rate
 
         interp_position = []
         interp_time = []
         for i in range(len(time_speed)):
-            # TODO last indices were swapped here before? is this wrong?
-            # did i screw something else up?
+            print i/len(time_speed)
+        # TODO last indices were swapped here before? is this wrong?
+        # did i screw something else up?
             original_times = time_speed[i][0,:]
             original_x_positions = time_speed[i][1,:]
-            # TODO maybe consider using ceil / floor in calculating closest sample time
-            # and getting rid of the fill_value='extrapolate' argument
+        # TODO maybe consider using ceil / floor in calculating closest sample time
+        # and getting rid of the fill_value='extrapolate' argument
             f = interpolate.interp1d(original_times, original_x_positions, fill_value='extrapolate')
             new_start = closest_sampletime(original_times[0])
             new_stop = closest_sampletime(original_times[-1])
-            # TODO + 1?
+        # TODO + 1?
             new_num_samples = int(round((new_stop - new_start) / sampling_rate))
             new_times = np.linspace(new_start, new_stop, new_num_samples)
-            '''
-            print 'original time range (w/ min + max):', original_times.min(), original_times.max()
-            print 'original_start, original_stop, new_start, new_stop, new_num_samples'
-            print original_times[0], original_times[-1], new_start, new_stop, new_num_samples
-            print 'range of new_times:', new_times[0], new_times[-1]
-            '''
             new_x_positions = f(new_times)
             interp_time.append(new_times)
             interp_position.append(new_x_positions)
+            data.extend(new_x_positions)
+            row =np.ones(len(new_times))*i
+            rows.extend(row)
 
+
+
+        print "END OF FOR LOOP"
+        '''
+        print 'original time range (w/ min + max):', original_times.min(), original_times.max()
+        print 'original_start, original_stop, new_start, new_stop, new_num_samples'
+        print original_times[0], original_times[-1], new_start, new_stop, new_num_samples
+        print 'range of new_times:', new_times[0], new_times[-1]
+        '''
+        print "what do you call a nosy pepper?"
         # TODO check all of these make sense together
-        old_min_time = min([np.min(a[0,:]) for a in time_speed])
-        old_max_time = max([np.max(a[0,:]) for a in time_speed])
+        #old_min_time = min([np.min(a[0,:]) for a in time_position])
+        #old_max_time = max([np.max(a[0,:]) for a in time_position])
         min_time = min([np.min(a) for a in interp_time])
         max_time = max([np.max(a) for a in interp_time])
-
-        begin_offset = []
-        end_offset = []
-        for i in range(num_trajecs):
-            interp_section = interp_time[i]
-            begin = int(((interp_section[0] - min_time)/sampling_rate))
-            begin_offset.append(begin)
-            end = int(((max_time - interp_section[-1])/sampling_rate))
-            end_offset.append(end)
-
-        final_aligned = []
         total_num_samples = int(round((max_time - min_time) / sampling_rate))
+        max_end_idx = None
+        for i in range(num_trajecs):
+            print i/num_trajecs
+            #aligned_interp = np.empty(total_num_samples) * np.nan
+            start_idx = int(round((interp_time[i][0] - min_time) / sampling_rate))
+            end_idx = start_idx + len(interp_time[i])
+            cols.extend(np.arange(start_idx, end_idx))
+            if max_end_idx==None:
+                max_end_idx = end_idx
+            elif max_end_idx< end_idx:
+                max_end_idx = end_idx
 
+        mtx = sparse.coo_matrix((data, (rows, cols)), shape = (len(np.unique(self.pd.objid)), max_end_idx))
+        final_aligned = mtx.toarray()
+        print "a pepper that's jalapeno business"
+        total_num_samples = int(round((max_time - min_time) / sampling_rate))
+        '''
         for i in range(num_trajecs):
             aligned_interp = np.empty(total_num_samples) * np.nan
             start_idx = int(round((interp_time[i][0] - min_time) / sampling_rate))
             end_idx = start_idx + len(interp_time[i])
             aligned_interp[start_idx:end_idx] = interp_position[i]
             final_aligned.append(aligned_interp)
+        '''
         '''
         for i in range(interp_time.shape[0]):
             aligned_interp = []
@@ -302,15 +322,20 @@ class Analysis:
             final_aligned.append(aligned_interp)
             print len(aligned_interp)
         '''
-        final_aligned = np.array(final_aligned)
-        plt.plot(final_aligned)
+        print "FINAL GRAPH!!! YOU CAN DO IT!!!!!"
+        avg = []
+        for i range(cols):
+            column = final_aligned.getcol(i)
+            column = np.array(column)
+            avg.extend(np.nanmean(column))
+        plt.plot(avg)
         plt.xlabel('time')
-        plt.ylabel('percent occupancy')
+        plt.ylabel('average walking speed')
         lf_edge= 0
-        rt_edge= 600
-        for i in range (int(final_aligned.shape[0]/9000) +1):
-                lf_edge= lf_edge+ 8400
-                rt_edge= rt_edge+ 8400
+        rt_edge= 240
+        for i in range (int(final_aligned.shape[0]/3600) +2):
+                lf_edge= lf_edge+ 3360
+                rt_edge= rt_edge+ 3360
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return final_aligned
