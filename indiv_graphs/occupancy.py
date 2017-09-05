@@ -3,12 +3,12 @@ import numpy as np
 import multi_tracker_analysis as mta
 import matplotlib.pyplot as plt
 import math
-
-hdf5_filename = "/home/lab/demo/demo_1/tester/20170722_151805_N1_trackedobjects.hdf5"
+import ipdb
+hdf5_filename = "/mnt/tb/original/20170730_155211_N1/20170730_155211_N1_trackedobjects.hdf5"
 pd, config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(hdf5_filename)
 np.unique(pd.objid)
 pd.keys()
-path = '/home/lab/demo/demo_1/tester/20170722_151805_N1_trackedobjects.hdf5'
+path = "/mnt/tb/original/20170730_155211_N1/20170730_155211_N1_trackedobjects.hdf5"
 dataset = mta.read_hdf5_file_to_pandas.Dataset(pd, path = path)
 dataset.load_keys()
 
@@ -21,6 +21,13 @@ last_time_pt = None
 frame_rate = None
 
 position = []
+frame_rates = []
+frame_rat = []
+frame_rats = []
+frame_rodent = []
+frame_rodents = []
+tim_diff = []
+
 
 for i in range (len(np.unique(pd.objid))):
 	trajec = dataset.trajec(dataset.keys[i])
@@ -28,9 +35,18 @@ for i in range (len(np.unique(pd.objid))):
 	#accurate to hundredths digit (but still not perfect :( )
 	first_timept = trajec.time_epoch_secs[0] + trajec.time_epoch_nsecs[0]/1000000000
 	last_timept = trajec.time_epoch_secs[-1]+ trajec.time_epoch_nsecs[-1]/1000000000
+        if (last_timept - first_timept >3 and last_timept-first_timept<3.001):
+            frame_rat.append(num_of_positions/(last_timept - first_timept))
+        if (last_timept - first_timept >7 and last_timept-first_timept<7.0001):
+            frame_rats.append(num_of_positions/(last_timept - first_timept))
+        if (last_timept - first_timept >10 and last_timept-first_timept<10.001):
+            frame_rodent.append(num_of_positions/(last_timept - first_timept))
+        if (last_timept - first_timept >14 and last_timept-first_timept<14.001):
+            frame_rodents.append(num_of_positions/(last_timept - first_timept))
 	if (last_timept - first_timept)!=0:	
 		frame_rate = num_of_positions/(last_timept - first_timept)
-                print frame_rate
+                frame_rates.append(frame_rate)
+                tim_diff.append((last_timept - first_timept))
 	if min_frame == None:
 		min_frame = trajec.frames[0]
 	elif trajec.frames[0] < min_frame:
@@ -39,10 +55,10 @@ for i in range (len(np.unique(pd.objid))):
 		max_frame = trajec.frames[int(trajec.position_x.shape[0])-1]
 	elif trajec.frames[int(trajec.position_x.shape[0])-1] > max_frame:
 		max_frame = trajec.frames[int(trajec.position_x.shape[0])-1]
-
-
+    
+ipdb.set_trace()
 #aligning front of position lists (based on frame, not time)
-
+'''
 for i in range (len(np.unique(pd.objid))):
 	trajec = dataset.trajec(dataset.keys[i])
 	first_position = trajec.position_x[0]
@@ -89,4 +105,4 @@ for i in range (int(math.ceil(max_frame/12600))):
         rt_edge= rt_edge+ abs(frame_rate*1800)
         plt.axvspan(lf_edge, rt_edge, 0, 1, alpha=0.5, color= 'yellow')
 plt.show()
-
+'''

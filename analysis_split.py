@@ -4,7 +4,7 @@ import multi_tracker_analysis as mta
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy import stats
-
+import seaborn as sns
 
 
 class Analysis:
@@ -264,6 +264,7 @@ class Analysis:
         '''
 
         final_aligned = np.array(final_aligned)
+
         print final_aligned.shape
         std_err = []
         avg = np.nanmean(final_aligned, axis=0)

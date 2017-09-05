@@ -27,6 +27,8 @@ class Analysis:
         Returns a list of numpy arrays of shape (2, num_samples),
         where num_samples can vary across trajectories.
         """
+        rt_most_pixel = None
+        lf_most_pixel = None
         time_position = []
         min_time_len = None
         for i in range (len(np.unique(self.pd.objid))):
@@ -38,8 +40,20 @@ class Analysis:
                 min_time_len = len(times)
             elif min_time_len > len(times):
                 min_time_len = len(times)
+            pixels = np.unique(trajec.position_x)
+            if rt_most_pixel ==None:
+                rt_most_pixel = pixels[-1]
+            elif rt_most_pixel < pixels[-1]:
+                rt_most_pixel = pixels[-1]
+            if lf_most_pixel ==None:
+                lf_most_pixel = pixels[0]
+            elif lf_most_pixel > pixels[0]:
+                lf_most_pixel = pixels[0]
         print min_time_len
-        return time_position
+        print rt_most_pixel
+        print lf_most_pixel
+        print rt_most_pixel - lf_most_pixel
+        return time_position, rt_most_pixel, lf_most_pixel
 
     def interpolate_and_align(self, time_position):
         """
@@ -58,10 +72,10 @@ class Analysis:
 
         interp_position = []
         interp_time = []
+
         for i in range(len(time_position)):
         # TODO last indices were swapped here before? is this wrong?
         # did i screw something else up?
-            print self.hdf5_filename
             original_times = time_position[i][0,:]
             original_x_positions = time_position[i][1,:]
             # TODO maybe consider using ceil / floor in calculating closest sample time
@@ -71,10 +85,13 @@ class Analysis:
                 new_start = closest_sampletime(original_times[0])
                 new_stop = closest_sampletime(original_times[-1])
             # TODO + 1?
+            if ((new_stop-new_start)>=0):
                 new_num_samples = int(round((new_stop - new_start) / self.sampling_interval))
-                ipdb.set_trace()
                 new_times = np.linspace(new_start, new_stop, new_num_samples)
                 new_x_positions = f(new_times)
+            else:
+                print "time going backwards"
+
             if (len(new_times)> 0 and len(new_x_positions) > 0):
                 interp_time.append(new_times)
                 interp_position.append(new_x_positions)
@@ -84,6 +101,7 @@ class Analysis:
             else:
                 print "THROWING OUT STUFF BC NOT ENOUGH TIME & POSITION VALUES"
                 missing_trajecs += 1
+
 
 
 
@@ -161,7 +179,8 @@ class Analysis:
         print final_aligned.shape
         return final_aligned
         '''
-    def occupancy(self, interp_position_total):
+    def occupancy(self, interp_position_total, right_most_pixel, left_most_pixel):
+        halfway_pt = (right_most_pixel - left_most_pixel)/2
         plt.figure(figsize = (40,6))
         num_of_trajectories = []
         num_frames_shape = interp_position_total.get_shape()
@@ -174,8 +193,8 @@ class Analysis:
             column = interp_position_total[:, i]
             flies = (column>0.0).sum()
             num_of_trajectories.append(flies)
-            lf = (column >920.0).sum()
-            rt = flies-lf
+            rt = (column >halfway_pt).sum()
+            lf = flies-rt
             b.append([lf,rt])
             # unnecessary
             rt =0
@@ -188,18 +207,101 @@ class Analysis:
         #ax = sns.tsplot(data=b[:,0])
         #ax = sns.tsplot(data=b[:,1])
         plt.ylabel('flies')
-        plt.xlabel('frames')
+        plt.xlabel('hours')
         lf_edge= 0
         rt_edge= (1/self.sampling_interval)*60*2
+        times = []
         for i in range (46):
-                lf_edge= lf_edge + (1/self.sampling_interval)*60*30
-                rt_edge= rt_edge + (1/self.sampling_interval)*60*30
-                plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
         os.chdir('/home/lab/analysis_graphs')
-        os.getcwd()
-        #os.mkdir(self.hdf5_filename[18:36])
+        os.mkdir(self.hdf5_filename[18:36])
         plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy.png')
         return b
+
+    def roi_occupancy(self, interp_position_total, right_most_pixel, left_most_pixel):
+        roi_width = (right_most_pixel - left_most_pixel)/3
+        roi_right = right_most_pixel - roi_width
+        roi_left = left_most_pixel + roi_width
+        plt.figure(figsize = (40,6))
+        num_of_trajectories = []
+        num_frames_shape = interp_position_total.get_shape()
+        num_frames = num_frames_shape[1]
+        b = []
+        flies = 0
+        lf = 0
+        rt = 0
+        middle = 0
+        for i in range (num_frames):
+            column = interp_position_total[:, i]
+            flies = (column>0.0).sum()
+            num_of_trajectories.append(flies)
+            rt = (column > roi_right).sum()
+            lf = flies - (column > roi_left).sum()
+            b.append([lf,rt])
+            # unnecessary
+            rt =0
+            lf =0
+            flies = 0
+        b = np.array(b)
+        print b.shape
+        plt.plot(b[:, 0], color = 'blue')
+        plt.plot(b[:, 1], color = 'red')
+        #ax = sns.tsplot(data=b[:,0])
+        #ax = sns.tsplot(data=b[:,1])
+        plt.ylabel('flies')
+        plt.xlabel('hours')
+        plt.title('ROI')
+        lf_edge= 0
+        rt_edge= (1/self.sampling_interval)*60*2
+        times = []
+        for i in range (46):
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
+        os.chdir('/home/lab/analysis_graphs')
+        os.mkdir(self.hdf5_filename[18:36])
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy.png')
+        return b
+
+    def change_in_occupancy(self, occupancy_roi):
+        plt.figure(figsize = (40,6))
+        change = []
+        for i in range (occupancy_roi.shape[0] -1):
+            change_left = occupancy_roi[i+1][0]-occupancy_roi[i][0]
+            change_right = (occupancy_roi[i+1, 1]- occupancy_roi[i+1,1])
+            change.append([change_left, change_right])
+
+        change = np.array(change)
+        plt.plot(change[:, 0], color = 'blue')
+        plt.plot(change[:, 1], color = 'red')
+        plt.ylabel('flies')
+        plt.xlabel('hours')
+        lf_edge= 0
+        rt_edge= (1/self.sampling_interval)*60*2
+        times = []
+        for i in range (46):
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy_change.png')
+        return change
 
     def occupancy_percent(self, occupancy_original):
         plt.figure(figsize = (40,6))
@@ -213,18 +315,46 @@ class Analysis:
                 occ.append([left_percent, right_percent])
             else:
                 occ.append([0, 0])
-        plt.plot(occ)
-        plt.xlabel('time')
+        occ = np.array(occ)
+        plt.plot(occ[:, 0], color = 'blue')
+        plt.plot(occ[:, 1], color = 'red')
+        plt.xlabel('hours')
         plt.ylabel('percent occupancy')
         lf_edge= 0
         rt_edge= (1/self.sampling_interval)*60*2
+        times = []
         for i in range (46):
-                lf_edge= lf_edge + (1/self.sampling_interval)*60*30
-                rt_edge= rt_edge + (1/self.sampling_interval)*60*30
-                plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
-
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
         plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18:36] + '/occupancy_percent.png')
         return occ
+
+    def preference_index(self, occupancy_original):
+        plt.figure(figsize = (40,6))
+        pref_idx = (occupancy_original[:, 1] - occupancy_original[:, 0])/(occupancy_original[:, 1] + occupancy_original[:, 0])
+        plt.plot(pref_idx)
+        plt.xlabel('hours')
+        plt.ylabel('preference index')
+        lf_edge= 0
+        rt_edge= (1/self.sampling_interval)*60*2
+        times = []
+        for i in range (46):
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18:36] + '/preference_index.png')
+        return pref_idx
 
     def time_speed(self):
         """
@@ -238,7 +368,6 @@ class Analysis:
             time_speedy = np.vstack([times, trajec.speed])
             time_speed.append(time_speedy)
         return time_speed
-
     def walkspeed(self, time_speed):
         """
         Parameters:
@@ -270,7 +399,6 @@ class Analysis:
                 new_stop = closest_sampletime(original_times[-1])
                 # TODO + 1?
                 new_num_samples = int(round((new_stop - new_start) / self.sampling_interval))
-                ipdb.set_trace()
                 new_times = np.linspace(new_start, new_stop, new_num_samples)
                 new_speeds = f(new_times)
             if (len(new_times)>0 and len(new_speeds>0)):
@@ -286,12 +414,7 @@ class Analysis:
 
 
         print "END OF FOR LOOP"
-        '''
-        print 'original time range (w/ min + max):', original_times.min(), original_times.max()
-        print 'original_start, original_stop, new_start, new_stop, new_num_samples'
-        print original_times[0], original_times[-1], new_start, new_stop, new_num_samples
-        print 'range of new_times:', new_times[0], new_times[-1]
-        '''
+
         # TODO check all of these make sense together
         #old_min_time = min([np.min(a[0,:]) for a in time_position])
         #old_max_time = max([np.max(a[0,:]) for a in time_position])
@@ -326,39 +449,67 @@ class Analysis:
             avg.append(avg_speed)
         plt.plot(avg)
         avg = np.array(avg)
+        x = np.arange(len(avg))
+        y = avg
+        plt.xlabel('time')
+        plt.ylabel('average walking speed')
+        lf_edge= 0
+        rt_edge= (1/self.sampling_interval)*60*2
+        times = []
+        for i in range (46):
+            lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+            times.append(lf_edge)
+            rt_edge= rt_edge + (1/self.sampling_interval)*60*30
+            plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/walking_speed.png')
+        return final_aligned, avg
 
-        #ax = sns.tsplot(data=avg)
 
+    def walkspeed_error(self, final_aligned, avg):
+        plt.figure(figsize = (40,6))
         std_err = np.empty(final_aligned.shape[1])
         for i in range(final_aligned.shape[1]):
             std_err[i] = stats.sem(final_aligned[:, i].data, nan_policy='omit')
         std_err = np.array(std_err)
+        plt.figure(figsize = (40,6))
+        avg = np.array(avg)
         x = np.arange(len(avg))
         y = avg
         plt.errorbar(x,y, yerr= std_err, color = 'y')
-        plt.xlabel('time')
+        plt.xlabel('hours')
         plt.ylabel('percent occupancy')
         lf_edge= 0
         rt_edge= (1/self.sampling_interval)*60*2
+        times = []
         for i in range (46):
                 lf_edge= lf_edge + (1/self.sampling_interval)*60*30
+                times.append(lf_edge)
                 rt_edge= rt_edge + (1/self.sampling_interval)*60*30
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/walking_speed.png')
-        return final_aligned
+        times = times[1: -1: 2]
+        points = np.arange(23)
+        points = points +1
+        plt.xticks(times, points)
+        plt.plot(avg)
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/walking_speed_error.png')
 
-    def num_trajecs_histogram(self, interp_position_total):
+    def num_trajecs(self, interp_position_total):
         #plot differently
         #seaborn error thing
+        plt.figure(figsize=(40,6))
         num_of_trajectories = []
         num_frames_shape = interp_position_total.get_shape()
         num_frames = num_frames_shape[1]
-        flies = 0
         for i in range (num_frames):
             column = interp_position_total[:, i]
             flies = (column>0.0).sum()
             num_of_trajectories.append(flies)
-        plt.hist(num_of_trajectories, 60*5/self.sampling_interval, normed = 0)
+        plt.plot(num_of_trajectories)
+        #plt.hist(num_of_trajectories, 60*5/self.sampling_interval, normed = 0)
         plt.xlabel('number of trajectories')
         plt.ylabel('frequency')
-        plt.show()
+        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/num_trajectories.png')

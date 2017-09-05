@@ -48,11 +48,18 @@ class Analysis:
         where num_samples can vary across trajectories.
         """
         time_position = []
+        min_time_len = None
         for i in range (len(np.unique(self.pd.objid))):
             trajec = self.dataset.trajec(self.dataset.keys[i])
             times = trajec.time_epoch_secs + trajec.time_epoch_nsecs / 1e9
             time_pos = np.vstack([times, trajec.position_x])
             time_position.append(time_pos)
+            if min_time_len == None:
+                min_time_len = len(times)
+            elif min_time_len > len(times):
+                min_time_len = len(times)
+        print min_time_len
+
         return time_position
 
     def interpolate_and_align(self, time_position):
@@ -72,16 +79,27 @@ class Analysis:
         interp_position = []
         interp_time = []
         for i in range(len(time_position)):
-            print i/len(time_position)
         # TODO last indices were swapped here before? is this wrong?
         # did i screw something else up?
             original_times = time_position[i][0,:]
             original_x_positions = time_position[i][1,:]
         # TODO maybe consider using ceil / floor in calculating closest sample time
         # and getting rid of the fill_value='extrapolate' argument
-            f = interpolate.interp1d(original_times, original_x_positions, fill_value='extrapolate')
-            new_start = closest_sampletime(original_times[0])
-            new_stop = closest_sampletime(original_times[-1])
+            if (len(original_times)>1 and len(original_x_positions)>1):
+                f = interpolate.interp1d(original_times, original_x_positions, fill_value='extrapolate')
+                new_start = closest_sampletime(original_times[0])
+                new_stop = closest_sampletime(original_times[-1])
+                new_num_samples = int(round((new_stop - new_start) / sampling_rate))
+                new_times = np.linspace(new_start, new_stop, new_num_samples)
+                new_x_positions = f(new_times)
+                interp_time.append(new_times)
+                interp_position.append(new_x_positions)
+                data.extend(new_x_positions)
+                row =np.ones(len(new_times))*i
+                rows.extend(row)
+            else:
+                print "THROWING OUT STUFF"
+        '''
         # TODO + 1?
             new_num_samples = int(round((new_stop - new_start) / sampling_rate))
             new_times = np.linspace(new_start, new_stop, new_num_samples)
@@ -95,6 +113,7 @@ class Analysis:
 
 
         print "END OF FOR LOOP"
+        '''
         '''
         print 'original time range (w/ min + max):', original_times.min(), original_times.max()
         print 'original_start, original_stop, new_start, new_stop, new_num_samples'
@@ -120,13 +139,9 @@ class Analysis:
             elif max_end_idx< end_idx:
                 max_end_idx = end_idx
 
-
-        print len(rows)
-        print len(cols)
-        print len(data)
         mtx = sparse.coo_matrix((data, (rows, cols)), shape = (len(np.unique(self.pd.objid)), max_end_idx))
         final_aligned = mtx.toarray()
-        print final_aligned
+        final_aligned = np.array(final_aligned)
         print "a pepper that's jalapeno business"
         return final_aligned
 
@@ -171,6 +186,7 @@ class Analysis:
         return final_aligned
         '''
     def occupancy(self, interp_position_total):
+        sampling_rate = 0.5
         num_frames = interp_position_total.shape[1]
         b = []
         flies = 0
@@ -189,15 +205,16 @@ class Analysis:
         plt.ylabel('flies')
         plt.xlabel('frames')
         lf_edge= 0
-        rt_edge= 240
-        for i in range (int(b.shape[0]/3600)+2):
-                lf_edge= lf_edge+ 3360
-                rt_edge= rt_edge+ 3360
+        rt_edge= (1/sampling_rate)*60*2
+        for i in range (int(b.shape[0]/((1/sampling_rate)*60*30))+1):
+                lf_edge= lf_edge + (1/sampling_rate)*60*28
+                rt_edge= rt_edge + (1/sampling_rate)*60*28
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return b
 
     def occupancy_percent(self, occupancy_original):
+        sampling_rate = 0.5
         occ = []
         print occupancy_original.shape
         for i in range(occupancy_original.shape[0]):
@@ -212,10 +229,10 @@ class Analysis:
         plt.xlabel('time')
         plt.ylabel('percent occupancy')
         lf_edge= 0
-        rt_edge= 240
-        for i in range (int(len(occ)/3600)+2):
-                lf_edge= lf_edge+ 3360
-                rt_edge= rt_edge+ 3360
+        rt_edge= (1/sampling_rate)*60*2
+        for i in range (int(b.shape[0]/((1/sampling_rate)*60*30))+1):
+                lf_edge= lf_edge + (1/sampling_rate)*60*28
+                rt_edge= rt_edge + (1/sampling_rate)*60*28
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return occ
@@ -324,7 +341,7 @@ class Analysis:
         '''
         print "FINAL GRAPH!!! YOU CAN DO IT!!!!!"
         avg = []
-        for i range(cols):
+        for i in range(cols):
             column = final_aligned.getcol(i)
             column = np.array(column)
             avg.extend(np.nanmean(column))
@@ -332,10 +349,10 @@ class Analysis:
         plt.xlabel('time')
         plt.ylabel('average walking speed')
         lf_edge= 0
-        rt_edge= 240
-        for i in range (int(final_aligned.shape[0]/3600) +2):
-                lf_edge= lf_edge+ 3360
-                rt_edge= rt_edge+ 3360
+        rt_edge= (1/sampling_rate)*60*2
+        for i in range (int(b.shape[0]/((1/sampling_rate)*60*30))+1):
+                lf_edge= lf_edge + (1/sampling_rate)*60*28
+                rt_edge= rt_edge + (1/sampling)*60*28
                 plt.axvspan(lf_edge, rt_edge, alpha=0.5, color= 'yellow')
         plt.show()
         return final_aligned
