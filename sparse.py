@@ -21,6 +21,7 @@ class Analysis:
         self.dataset = mta.read_hdf5_file_to_pandas.Dataset(pd, path = path)
         self.dataset.load_keys()
         self.sampling_interval = sampling_interval
+        self.experiment_id  = os.path.split(self.hdf5_filename)[-1][:18]
 
     def time_position(self):
         """
@@ -221,8 +222,9 @@ class Analysis:
         points = points +1
         plt.xticks(times, points)
         os.chdir('/home/lab/analysis_graphs')
-        os.mkdir(self.hdf5_filename[18:36])
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy.png')
+        if not os.path.isdir(self.experiment_id):
+            os.mkdir(self.experiment_id)
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id + '/occupancy.png')
         return b
 
     def roi_occupancy(self, interp_position_total, right_most_pixel, left_most_pixel):
@@ -271,8 +273,9 @@ class Analysis:
         points = points +1
         plt.xticks(times, points)
         os.chdir('/home/lab/analysis_graphs')
-        os.mkdir(self.hdf5_filename[18:36])
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy.png')
+        if not os.path.isdir(self.experiment_id):
+            os.mkdir(self.experiment_id)
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id + '/occupancy.png')
         return b
 
     def change_in_occupancy(self, occupancy_roi):
@@ -300,7 +303,7 @@ class Analysis:
         points = np.arange(23)
         points = points +1
         plt.xticks(times, points)
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/occupancy_change.png')
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id + '/occupancy_change.png')
         return change
 
     def occupancy_percent(self, occupancy_original):
@@ -332,7 +335,7 @@ class Analysis:
         points = np.arange(23)
         points = points +1
         plt.xticks(times, points)
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18:36] + '/occupancy_percent.png')
+        plt.savefig('/home/lab/analysis_graphs/' +self.experiment_id+ '/occupancy_percent.png')
         return occ
 
     def preference_index(self, occupancy_original):
@@ -353,7 +356,7 @@ class Analysis:
         points = np.arange(23)
         points = points +1
         plt.xticks(times, points)
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18:36] + '/preference_index.png')
+        plt.savefig('/home/lab/analysis_graphs/' +self.experiment_id+ '/preference_index.png')
         return pref_idx
 
     def time_speed(self):
@@ -368,6 +371,7 @@ class Analysis:
             time_speedy = np.vstack([times, trajec.speed])
             time_speed.append(time_speedy)
         return time_speed
+
     def walkspeed(self, time_speed):
         """
         Parameters:
@@ -444,6 +448,9 @@ class Analysis:
         for i in range (num_frames):
             column = final_aligned[:, i]
             flies = (column>0).sum()
+            if flies == 0:
+                print('Number of flies was zero. Consider stopping analysis earlier in the future (change code).')
+                raise ValueError
             total_speed = column.sum()
             avg_speed = total_speed/flies
             avg.append(avg_speed)
@@ -465,7 +472,7 @@ class Analysis:
         points = np.arange(23)
         points = points +1
         plt.xticks(times, points)
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/walking_speed.png')
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id+ '/walking_speed.png')
         return final_aligned, avg
 
 
@@ -495,7 +502,7 @@ class Analysis:
         points = points +1
         plt.xticks(times, points)
         plt.plot(avg)
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/walking_speed_error.png')
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id+ '/walking_speed_error.png')
 
     def num_trajecs(self, interp_position_total):
         #plot differently
@@ -512,4 +519,4 @@ class Analysis:
         #plt.hist(num_of_trajectories, 60*5/self.sampling_interval, normed = 0)
         plt.xlabel('number of trajectories')
         plt.ylabel('frequency')
-        plt.savefig('/home/lab/analysis_graphs/' + self.hdf5_filename[18: 36] + '/num_trajectories.png')
+        plt.savefig('/home/lab/analysis_graphs/' + self.experiment_id+ '/num_trajectories.png')

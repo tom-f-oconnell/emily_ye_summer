@@ -20,10 +20,16 @@ def graphing(hdf5_filename):
     pref_idx = willitwork.preference_index(occupancy_roi)
     c = willitwork.occupancy_percent(occupancy_roi)
     time_speed = willitwork.time_speed()
-    walking_final_aligned, avg = willitwork.walkspeed(time_speed)
+    # TODO catch this earlier in the future
+    try:
+        walking_final_aligned, avg = willitwork.walkspeed(time_speed)
+    except ValueError:
+        # code throws this now if there are no flies
+        return
     walking_err = willitwork.walkspeed_error(walking_final_aligned, avg)
     trajectories = willitwork.num_trajecs(interp_position_total)
 
+"""
 hdf5_files = ['/mnt/tb/retracked/20170809_143458_N1/20170809_143458_N1_trackedobjects.hdf5',\
 '/mnt/tb/retracked/20170806_140932_N1/20170806_140932_N1_trackedobjects.hdf5',\
 '/mnt/tb/retracked/20170803_161438_N1/20170803_161438_N1_trackedobjects.hdf5',\
@@ -35,7 +41,8 @@ hdf5_files = ['/mnt/tb/retracked/20170809_143458_N1/20170809_143458_N1_trackedob
 '/mnt/tb/retracked/20170727_153410_N1/20170727_153410_N1_trackedobjects.hdf5',\
 '/mnt/tb/retracked/20170805_150712_N1/20170805_150712_N1_trackedobjects.hdf5',\
 '/mnt/tb/retracked/20170804_145530_N1/20170804_145530_N1_trackedobjects.hdf5']
-
+"""
+hdf5_files = ['/home/lab/catkin/src/multi_tracker/examples/sample_data/20160412_134708_N1_trackedobjects.hdf5']
 
 
 for i in (hdf5_files):
